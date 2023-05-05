@@ -95,18 +95,18 @@ packages:
     dependency: "direct main"
     description:
       name: lemon_engine
-      sha256: cd8b7dd73b5d2409e29223bb107533596ba3f2bbfb07af254bd4ae4905d25170
+      sha256: e007f2ec4922f33d078200deb542f7ed3ad5d985af28870145630aca2d367ec6
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.29"
+    version: "0.3.33"
   lemon_math:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: lemon_math
-      sha256: b9cbc1d5b20c227ed54f99a979450f86fe796075503549388030ced5b5a4674b
+      sha256: "76add3d14936709e28cc071573a18752033e4a311467e72f118291ba8c28d313"
       url: "https://pub.dev"
     source: hosted
-    version: "1.2.13"
+    version: "1.2.14"
   lemon_watch:
     dependency: transitive
     description:

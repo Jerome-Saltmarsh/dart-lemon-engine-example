@@ -2,105 +2,149 @@ import 'package:flutter/material.dart';
 import 'package:lemon_engine/lemon_engine.dart';
 import 'dart:ui' as ui;
 
-
 void main() {
 
-  late final ui.Image atlas;
+  late final ui.Image imageCharacterLeft;
+  late final ui.Image imageCharacterRight;
+  late final ui.Image imagePath;
 
-  var playerX = 200.0;
-  var playerY = 200.0;
-  var playerTargetX = 0.0;
-  var playerTargetY = 0.0;
-  var playerRotation = 0.0;
-  var playerFrame = 0;
+  const characterAnimationIdle    = [0];
+  const characterAnimationRun     = [1, 2, 3, 4];
+  const characterAnimationAttack  = [5];
+  const characterFrameRate = 6;
+  const characterSpeed = 2.0;
+  const frameWidth = 100.0;
+  const frameHeight = 64.0;
 
-  const playerSpeed = 2.0;
-  const frameSize = 64.0;
-  const playerFrames = 4;
 
-  void restartPlayer(){
-    playerX = 200;
-    playerY = 200;
-    playerTargetX = playerX;
-    playerTargetY = playerY;
-  }
+  var characterX = 200.0;
+  var characterY = 200.0;
+  var characterStateDuration = 0;
+  var characterAnimationFrame = 0;
+  var characterState = CharacterState.idle;
+  var characterStateNext = CharacterState.idle;
+  var characterAnimation = characterAnimationIdle;
+  var characterDirection = CharacterDirection.right;
 
   Engine.run(
       init: (sharedPreferences) async {
-        atlas = await Engine.loadImageAsset('images/atlas.png');
-        restartPlayer();
+        imageCharacterLeft = await Engine.loadImageAsset('images/character-left.png');
+        imageCharacterRight = await Engine.loadImageAsset('images/character-right.png');
+        imagePath = await Engine.loadImageAsset('images/path.png');
       },
       onLeftClicked: (){
-          playerTargetX = Engine.mouseWorldX;
-          playerTargetY = Engine.mouseWorldY;
+
       },
       onRightClicked: (){
-          playerX = Engine.mouseWorldX;
-          playerY = Engine.mouseWorldY;
-          playerTargetX = playerX;
-          playerTargetY = playerY;
+          characterX = Engine.mouseWorldX;
+          characterY = Engine.mouseWorldY;
       },
-
+      onKeyPressed: (int keyCode){
+        switch (keyCode){
+          case KeyCode.Arrow_Left:
+            characterStateNext = CharacterState.running;
+            characterDirection = CharacterDirection.left;
+            break;
+          case KeyCode.Arrow_Right:
+            characterStateNext = CharacterState.running;
+            characterDirection = CharacterDirection.right;
+            break;
+        }
+      },
+      onKeyUp: (int keyCode){
+        switch (keyCode){
+          case KeyCode.Arrow_Left:
+            characterStateNext = CharacterState.idle;
+            break;
+          case KeyCode.Arrow_Right:
+            characterStateNext = CharacterState.idle;
+            break;
+        }
+      },
       update: () {
 
-        if (Engine.keyPressed(KeyCode.Space)){
-          restartPlayer();
-        }
-        final distanceFromTarget = Engine.calculateDistance(
-            playerX,
-            playerY,
-            playerTargetX,
-            playerTargetY,
-        );
-        if (distanceFromTarget < 10) {
-          playerFrame = 0;
-          return;
-        }
-        if (Engine.paintFrame % 3 == 0){
-          playerFrame++;
-          playerFrame %= playerFrames;
+        Engine.cameraFollow(characterX, characterY, 0.00075);
+        characterStateDuration++;
+
+        if (characterStateNext != characterState) {
+          characterState = characterStateNext;
+          characterStateDuration = 0;
+          characterAnimationFrame = 0;
+          switch (characterState) {
+            case CharacterState.idle:
+              characterAnimation = characterAnimationIdle;
+              break;
+            case CharacterState.running:
+              characterAnimation = characterAnimationRun;
+              break;
+            case CharacterState.attacking:
+              characterAnimation = characterAnimationAttack;
+              break;
+          }
         }
 
-        playerRotation = Engine.calculateAngleBetween(
-          playerTargetX,
-          playerTargetY,
-          playerX,
-          playerY,
-        );
-        playerX += Engine.calculateAdjacent(playerRotation, playerSpeed);
-        playerY += Engine.calculateOpposite(playerRotation, playerSpeed);
+        characterAnimationFrame = characterAnimation[
+          characterStateDuration ~/
+              characterFrameRate % characterAnimation.length
+        ];
 
+        switch (characterState) {
+          case CharacterState.idle:
+            break;
+          case CharacterState.running:
+            characterX += characterDirection == CharacterDirection.left
+                ? -characterSpeed
+                : characterSpeed;
+            break;
+          case CharacterState.attacking:
+            // TODO: Handle this case.
+            break;
+        }
       },
       render: (Canvas canvas, Size size) {
-        Engine.renderSpriteRotated(
-            image: atlas,
-            srcX: playerFrame * frameSize,
+        for (var i = 0; i < 100; i++) {
+          Engine.renderSprite(
+            image: imagePath,
+            srcX: 0,
             srcY: 0,
-            srcWidth: frameSize,
-            srcHeight: frameSize,
-            dstX: playerX,
-            dstY: playerY,
-            rotation: playerRotation,
+            srcWidth: 256,
+            srcHeight: 256,
+            dstX: i * 256,
+            dstY: 190,
+          );
+        }
+
+        Engine.renderSprite(
+            image: characterDirection == CharacterDirection.left
+                ? imageCharacterLeft
+                : imageCharacterRight,
+            srcX: characterAnimationFrame * frameWidth,
+            srcY: 0,
+            srcWidth: frameWidth,
+            srcHeight: frameHeight,
+            dstX: characterX,
+            dstY: characterY,
         );
       },
       buildUI: (BuildContext context) => Stack(
-          children: [
-            const Positioned(
+          children: const [
+            Positioned(
               top: 16,
               left: 16,
               child: Text("left click to move",
                   style: TextStyle(color: Colors.white70, fontSize: 20))
             ),
-            Positioned(
-                bottom: 16,
-                right: 16,
-                child: Engine.buildOnPressed(
-                  child: const Text(
-                    "RESET",
-                    style: TextStyle(color: Colors.white70, fontSize: 60),
-                  ),
-                  action: restartPlayer,
-                )),
           ],
         ));
+}
+
+enum CharacterState {
+  idle,
+  running,
+  attacking,
+}
+
+enum CharacterDirection {
+  left,
+  right,
 }
