@@ -16,27 +16,15 @@ void main() {
   const keyboardRotateSpeed = pi * 0.05;
   const asteroidSpeedVariation = 10.0;
   const asteroidSpawnRadius = 1000.0;
-
-  var cannonAngle = 0.0;
-  var nextAsteroid = 0;
-  var spawnDuration = 75;
-
   final gameOver = Watch(false);
   final rockets = <Rocket>[];
   final asteroids = <Asteroid>[];
   final points = Watch(0);
+  var cannonAngle = 0.0;
+  var nextAsteroid = 0;
+  var spawnDuration = 75;
 
   void fireRocket() {
-
-    for (final rocket in rockets) {
-      if (rocket.active) continue;
-      rocket.x = adj(cannonAngle, cannonLength);
-      rocket.y = opp(cannonAngle, cannonLength);
-      rocket.setVelocity(cannonAngle, rocketSpeed);
-      rocket.active = true;
-      return;
-    }
-
     rockets.add(Rocket(
       x: adj(cannonAngle, cannonLength),
       y: opp(cannonAngle, cannonLength),
@@ -47,22 +35,18 @@ void main() {
 
   void spawnAsteroid() {
     final asteroidAngle = randomAngle();
-
-    final x = adj(asteroidAngle, asteroidSpawnRadius);
-    final y = opp(asteroidAngle, asteroidSpawnRadius);
-
     asteroids.add(Asteroid(
-      x,
-      y,
+      adj(asteroidAngle, asteroidSpawnRadius),
+      opp(asteroidAngle, asteroidSpawnRadius),
       randomBetween(-asteroidSpeedVariation, asteroidSpeedVariation),
       randomBetween(-asteroidSpeedVariation, asteroidSpeedVariation),
     ));
   }
 
   void restart() {
-    points.value = 0;
     asteroids.clear();
     rockets.clear();
+    points.value = 0;
     gameOver.value = false;
   }
 
@@ -82,7 +66,7 @@ void main() {
       );
     },
     onLeftClicked: fireRocket,
-    onRightClicked: () {},
+    onRightClicked: fireRocket,
     onKeyPressed: (int keyCode) {
       switch (keyCode) {
         case KeyCode.Space:
@@ -92,7 +76,6 @@ void main() {
     },
     update: () {
       if (gameOver.value) return;
-
       nextAsteroid--;
 
       if (nextAsteroid <= 0) {
@@ -115,17 +98,11 @@ void main() {
       }
 
       // collision detection
-      for (var i = 0; i < rockets.length; i++) {
-        final rocket = rockets[i];
+      for (final rocket in rockets) {
         if (!rocket.active) continue;
-        for (var j = 0; j < asteroids.length; j++) {
-          final asteroid = asteroids[j];
+        for (final asteroid in asteroids) {
           if (!asteroid.active) continue;
-          const collisionRadius = 20.0;
-          final distanceX = (asteroid.x - rocket.x).abs();
-          if (distanceX > collisionRadius) continue;
-          final distanceY = (asteroid.y - rocket.y).abs();
-          if (distanceY > collisionRadius) continue;
+          if (distanceBetween(asteroid.x, asteroid.y, rocket.x, rocket.y) > 25) continue;
           asteroid.active = false;
           rocket.active = false;
           points.value++;
@@ -141,8 +118,8 @@ void main() {
       }
     },
     render: (Canvas canvas, Size size) {
-      Engine.cameraX = ((Engine.screenCenterX * 0.01) / Engine.zoom);
-      Engine.cameraY = ((Engine.screenCenterY * 0.01) / Engine.zoom);
+      Engine.cameraX = 0;
+      Engine.cameraY = 0;
 
       // render planet
       Engine.renderSprite(
@@ -231,7 +208,6 @@ void main() {
 class Asteroid {
   double x;
   double y;
-
   double vx;
   double vy;
 
@@ -243,7 +219,6 @@ class Asteroid {
 
   void update() {
     if (!active) return;
-
     const earthMass = 10000.0;
     distance = hyp(x, y);
     final distanceSquared = max(1, distance * distance);
@@ -271,22 +246,15 @@ class Rocket {
     required this.rotation,
     double speed = 1.0,
   }) {
-    setVelocity(rotation, speed);
-  }
-
-  void setVelocity(double rotation, double speed){
-    this.rotation = rotation;
     velocityX = adj(rotation, speed);
     velocityY = opp(rotation, speed);
-    lifetime = 1000;
   }
 
   void update() {
     if (!active) return;
     x += velocityX;
     y += velocityY;
-    lifetime--;
-    if (lifetime <= 0) {
+    if (lifetime-- <= 0) {
       active = false;
     }
   }
