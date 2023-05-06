@@ -94,11 +94,10 @@ packages:
   lemon_engine:
     dependency: "direct main"
     description:
-      name: lemon_engine
-      sha256: e007f2ec4922f33d078200deb542f7ed3ad5d985af28870145630aca2d367ec6
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.33"
+      path: "C:\\Users\\Jerome\\github\\bleed\\dart-lemon-engine"
+      relative: false
+    source: path
+    version: "0.3.34"
   lemon_math:
     dependency: "direct main"
     description:
@@ -108,7 +107,7 @@ packages:
     source: hosted
     version: "1.2.14"
   lemon_watch:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: lemon_watch
       sha256: "7217253fd45582a240ce5f46d4ee6d2c82b8a3ca5f53cebf9d2c549a2a5e556b"

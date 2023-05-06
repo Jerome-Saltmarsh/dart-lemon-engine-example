@@ -1,150 +1,293 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:lemon_engine/lemon_engine.dart';
 import 'dart:ui' as ui;
 
+import 'package:lemon_math/src.dart';
+import 'package:lemon_watch/src.dart';
+
 void main() {
+  late final ui.Image atlas;
+  const cannonRadius = 60.0;
+  const cannonLength = 120.0;
+  const rocketSpeed = 20.0;
+  const earthRadius = 50.0;
+  const keyboardRotateSpeed = pi * 0.05;
+  const asteroidSpeedVariation = 10.0;
+  const asteroidSpawnRadius = 1000.0;
 
-  late final ui.Image imageCharacterLeft;
-  late final ui.Image imageCharacterRight;
-  late final ui.Image imagePath;
+  var cannonAngle = 0.0;
+  var nextAsteroid = 0;
+  var spawnDuration = 75;
 
-  const characterAnimationIdle    = [0];
-  const characterAnimationRun     = [1, 2, 3, 4];
-  const characterAnimationAttack  = [5];
-  const characterFrameRate = 6;
-  const characterSpeed = 2.0;
-  const frameWidth = 100.0;
-  const frameHeight = 64.0;
+  final gameOver = Watch(false);
+  final rockets = <Rocket>[];
+  final asteroids = <Asteroid>[];
+  final points = Watch(0);
 
+  void fireRocket() {
 
-  var characterX = 200.0;
-  var characterY = 200.0;
-  var characterStateDuration = 0;
-  var characterAnimationFrame = 0;
-  var characterState = CharacterState.idle;
-  var characterStateNext = CharacterState.idle;
-  var characterAnimation = characterAnimationIdle;
-  var characterDirection = CharacterDirection.right;
+    for (final rocket in rockets) {
+      if (rocket.active) continue;
+      rocket.x = adj(cannonAngle, cannonLength);
+      rocket.y = opp(cannonAngle, cannonLength);
+      rocket.setVelocity(cannonAngle, rocketSpeed);
+      rocket.active = true;
+      return;
+    }
+
+    rockets.add(Rocket(
+      x: adj(cannonAngle, cannonLength),
+      y: opp(cannonAngle, cannonLength),
+      rotation: cannonAngle,
+      speed: rocketSpeed,
+    ));
+  }
+
+  void spawnAsteroid() {
+    final asteroidAngle = randomAngle();
+
+    final x = adj(asteroidAngle, asteroidSpawnRadius);
+    final y = opp(asteroidAngle, asteroidSpawnRadius);
+
+    asteroids.add(Asteroid(
+      x,
+      y,
+      randomBetween(-asteroidSpeedVariation, asteroidSpeedVariation),
+      randomBetween(-asteroidSpeedVariation, asteroidSpeedVariation),
+    ));
+  }
+
+  void restart() {
+    points.value = 0;
+    asteroids.clear();
+    rockets.clear();
+    gameOver.value = false;
+  }
 
   Engine.run(
-      init: (sharedPreferences) async {
-        imageCharacterLeft = await Engine.loadImageAsset('images/character-left.png');
-        imageCharacterRight = await Engine.loadImageAsset('images/character-right.png');
-        imagePath = await Engine.loadImageAsset('images/path.png');
-      },
-      onLeftClicked: (){
+    backgroundColor: const Color.fromARGB(255, 64, 80, 16),
+    init: (sharedPreferences) async {
+      atlas = await Engine.loadImageAsset('images/atlas.png');
+      Engine.zoom = 0.4;
+      Engine.targetZoom = 0.4;
+    },
+    onMouseMoved: (double x, double y) {
+      cannonAngle = angleBetween(
+        x,
+        y,
+        Engine.screenCenterX,
+        Engine.screenCenterY,
+      );
+    },
+    onLeftClicked: fireRocket,
+    onRightClicked: () {},
+    onKeyPressed: (int keyCode) {
+      switch (keyCode) {
+        case KeyCode.Space:
+          fireRocket();
+          break;
+      }
+    },
+    update: () {
+      if (gameOver.value) return;
 
-      },
-      onRightClicked: (){
-          characterX = Engine.mouseWorldX;
-          characterY = Engine.mouseWorldY;
-      },
-      onKeyPressed: (int keyCode){
-        switch (keyCode){
-          case KeyCode.Arrow_Left:
-            characterStateNext = CharacterState.running;
-            characterDirection = CharacterDirection.left;
-            break;
-          case KeyCode.Arrow_Right:
-            characterStateNext = CharacterState.running;
-            characterDirection = CharacterDirection.right;
-            break;
+      nextAsteroid--;
+
+      if (nextAsteroid <= 0) {
+        spawnAsteroid();
+        nextAsteroid = spawnDuration;
+        if (spawnDuration > 10) {
+          spawnDuration--;
         }
-      },
-      onKeyUp: (int keyCode){
-        switch (keyCode){
-          case KeyCode.Arrow_Left:
-            characterStateNext = CharacterState.idle;
-            break;
-          case KeyCode.Arrow_Right:
-            characterStateNext = CharacterState.idle;
-            break;
+      }
+
+      for (final rocket in rockets) {
+        rocket.update();
+      }
+
+      for (final asteroid in asteroids) {
+        asteroid.update();
+        if (asteroid.distance < earthRadius) {
+          gameOver.value = true;
         }
-      },
-      update: () {
+      }
 
-        Engine.cameraFollow(characterX, characterY, 0.00075);
-        characterStateDuration++;
-
-        if (characterStateNext != characterState) {
-          characterState = characterStateNext;
-          characterStateDuration = 0;
-          characterAnimationFrame = 0;
-          switch (characterState) {
-            case CharacterState.idle:
-              characterAnimation = characterAnimationIdle;
-              break;
-            case CharacterState.running:
-              characterAnimation = characterAnimationRun;
-              break;
-            case CharacterState.attacking:
-              characterAnimation = characterAnimationAttack;
-              break;
-          }
+      // collision detection
+      for (var i = 0; i < rockets.length; i++) {
+        final rocket = rockets[i];
+        if (!rocket.active) continue;
+        for (var j = 0; j < asteroids.length; j++) {
+          final asteroid = asteroids[j];
+          if (!asteroid.active) continue;
+          const collisionRadius = 20.0;
+          final distanceX = (asteroid.x - rocket.x).abs();
+          if (distanceX > collisionRadius) continue;
+          final distanceY = (asteroid.y - rocket.y).abs();
+          if (distanceY > collisionRadius) continue;
+          asteroid.active = false;
+          rocket.active = false;
+          points.value++;
+          break;
         }
+      }
 
-        characterAnimationFrame = characterAnimation[
-          characterStateDuration ~/
-              characterFrameRate % characterAnimation.length
-        ];
+      if (Engine.keyPressed(KeyCode.Arrow_Left)) {
+        cannonAngle -= keyboardRotateSpeed;
+      }
+      if (Engine.keyPressed(KeyCode.Arrow_Right)) {
+        cannonAngle += keyboardRotateSpeed;
+      }
+    },
+    render: (Canvas canvas, Size size) {
+      Engine.cameraX = ((Engine.screenCenterX * 0.01) / Engine.zoom);
+      Engine.cameraY = ((Engine.screenCenterY * 0.01) / Engine.zoom);
 
-        switch (characterState) {
-          case CharacterState.idle:
-            break;
-          case CharacterState.running:
-            characterX += characterDirection == CharacterDirection.left
-                ? -characterSpeed
-                : characterSpeed;
-            break;
-          case CharacterState.attacking:
-            // TODO: Handle this case.
-            break;
-        }
-      },
-      render: (Canvas canvas, Size size) {
-        for (var i = 0; i < 100; i++) {
-          Engine.renderSprite(
-            image: imagePath,
-            srcX: 0,
-            srcY: 0,
-            srcWidth: 256,
-            srcHeight: 256,
-            dstX: i * 256,
-            dstY: 190,
-          );
-        }
+      // render planet
+      Engine.renderSprite(
+        image: atlas,
+        srcX: 0,
+        srcY: 0,
+        srcWidth: 126,
+        srcHeight: 126,
+        dstX: 0,
+        dstY: 0,
+      );
 
-        Engine.renderSprite(
-            image: characterDirection == CharacterDirection.left
-                ? imageCharacterLeft
-                : imageCharacterRight,
-            srcX: characterAnimationFrame * frameWidth,
-            srcY: 0,
-            srcWidth: frameWidth,
-            srcHeight: frameHeight,
-            dstX: characterX,
-            dstY: characterY,
+      // render cannon
+      Engine.renderSpriteRotated(
+        image: atlas,
+        srcX: 129,
+        srcY: 1,
+        srcWidth: 51,
+        srcHeight: 32,
+        dstX: adj(cannonAngle, cannonRadius),
+        dstY: opp(cannonAngle, cannonRadius),
+        anchorX: 0,
+        rotation: cannonAngle,
+      );
+
+      // render rockets
+      for (var rocket in rockets) {
+        if (!rocket.active) continue;
+        Engine.renderSpriteRotated(
+          image: atlas,
+          srcX: 208,
+          srcY: 9,
+          srcWidth: 32,
+          srcHeight: 16,
+          dstX: rocket.x,
+          dstY: rocket.y,
+          rotation: rocket.rotation,
+          anchorX: 0,
         );
-      },
-      buildUI: (BuildContext context) => Stack(
-          children: const [
-            Positioned(
-              top: 16,
-              left: 16,
-              child: Text("left click to move",
-                  style: TextStyle(color: Colors.white70, fontSize: 20))
+      }
+
+      for (final asteroid in asteroids) {
+        if (!asteroid.active) continue;
+        Engine.renderSprite(
+          image: atlas,
+          srcX: 143,
+          srcY: 48,
+          srcWidth: 47,
+          srcHeight: 46,
+          dstX: asteroid.x,
+          dstY: asteroid.y,
+        );
+      }
+    },
+    buildUI: (BuildContext context) => WatchBuilder(gameOver, (bool gameOver) {
+      return Stack(
+        children: [
+          Positioned(
+              top: 8,
+              left: 8,
+              child: WatchBuilder(
+                  points,
+                  (int points) => Text(
+                        "Points: $points",
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 20),
+                      ))),
+          if (gameOver)
+            Container(
+              width: Engine.screen.width,
+              height: Engine.screen.height,
+              alignment: Alignment.center,
+              child: Engine.buildOnPressed(action: restart,
+              child: const Text(
+                "GAME OVER - RESTART",
+                style: TextStyle(color: Colors.white70, fontSize: 40),
+              ),
             ),
-          ],
-        ));
+            )
+        ],
+      );
+    }),
+  );
 }
 
-enum CharacterState {
-  idle,
-  running,
-  attacking,
+class Asteroid {
+  double x;
+  double y;
+
+  double vx;
+  double vy;
+
+  var distance = 0.0;
+
+  var active = true;
+
+  Asteroid(this.x, this.y, this.vx, this.vy);
+
+  void update() {
+    if (!active) return;
+
+    const earthMass = 10000.0;
+    distance = hyp(x, y);
+    final distanceSquared = max(1, distance * distance);
+    final angleToEarth = angle(x, y);
+    vx -= adj(angleToEarth, earthMass / distanceSquared);
+    vy -= opp(angleToEarth, earthMass / distanceSquared);
+    x += vx;
+    y += vy;
+  }
 }
 
-enum CharacterDirection {
-  left,
-  right,
+class Rocket {
+  double x;
+  double y;
+  double rotation;
+
+  var active = true;
+  var velocityX = 0.0;
+  var velocityY = 0.0;
+  var lifetime = 1000;
+
+  Rocket({
+    required this.x,
+    required this.y,
+    required this.rotation,
+    double speed = 1.0,
+  }) {
+    setVelocity(rotation, speed);
+  }
+
+  void setVelocity(double rotation, double speed){
+    this.rotation = rotation;
+    velocityX = adj(rotation, speed);
+    velocityY = opp(rotation, speed);
+    lifetime = 1000;
+  }
+
+  void update() {
+    if (!active) return;
+    x += velocityX;
+    y += velocityY;
+    lifetime--;
+    if (lifetime <= 0) {
+      active = false;
+    }
+  }
 }
