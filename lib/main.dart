@@ -48,6 +48,7 @@ void main() {
     rockets.clear();
     points.value = 0;
     gameOver.value = false;
+    spawnDuration = 75;
   }
 
   Engine.run(
