@@ -76,6 +76,8 @@ void main() {
       }
     },
     update: () {
+      Engine.cameraCenter(0, 0);
+
       if (gameOver.value) return;
       nextAsteroid--;
 
