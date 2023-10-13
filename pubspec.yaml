@@ -1,7 +1,7 @@
 name: lemon_engine_example
 description: An example for the lemon engine
 
-version: 1.0.3
+version: 1.0.4
 
 environment:
   sdk: '>=2.19.2 <3.0.0'
@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  lemon_engine: ^0.3.36
+  lemon_engine: ^0.5.7
   lemon_math: ^1.2.14
   lemon_watch: ^1.1.0
 
