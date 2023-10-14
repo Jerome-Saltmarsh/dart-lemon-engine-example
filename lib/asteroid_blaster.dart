@@ -7,14 +7,178 @@ import 'dart:ui' as ui;
 import 'package:lemon_math/src.dart';
 import 'package:lemon_watch/src.dart';
 
-
-class AsteroidBlaster extends LemonEngine {
+class AsteroidGameWidget extends LemonEngine {
   late final ui.Image atlas;
+  final game = AsteroidGame();
+  final keyboardRotateSpeed = pi * 0.05;
+
+  AsteroidGameWidget() : super(backgroundColor: const Color.fromARGB(255, 64, 80, 16));
+
+  @override
+  Future onInit(sharedPreferences) async {
+    atlas = await loadAssetImage('images/atlas.png');
+  }
+
+  @override
+  void onUpdate(double delta) {
+    cameraCenter(0, 0);
+    handleKeyboardInput();
+    game.update(delta);
+  }
+
+  void handleKeyboardInput() {
+    if (keyPressed(KeyCode.Arrow_Left)) {
+      game.cannonAngle -= keyboardRotateSpeed;
+    }
+    if (keyPressed(KeyCode.Arrow_Right)) {
+      game.cannonAngle += keyboardRotateSpeed;
+    }
+  }
+
+  @override
+  void onDrawCanvas(Canvas canvas, Size size) {
+    renderPlanet();
+    renderCannon();
+    renderRockets();
+    renderAsteroids();
+  }
+
+
+  @override
+  void onLeftClicked() {
+    game.fireRocket();
+  }
+
+  @override
+  void onRightClicked() {
+    game.fireRocket();
+  }
+
+  @override
+  void onKeyPressed(int keyCode) {
+    switch (keyCode) {
+      case KeyCode.Space:
+        game.fireRocket();
+        break;
+    }
+  }
+
+  @override
+  void onMouseMoved(double x, double y) {
+    game.cannonAngle = angleBetween(
+      x,
+      y,
+      screenCenterX,
+      screenCenterY,
+    );
+  }
+
+
+  void renderAsteroids() {
+    for (final asteroid in game.asteroids) {
+      if (!asteroid.active) continue;
+      renderSprite(
+        image: atlas,
+        srcX: 143,
+        srcY: 48,
+        srcWidth: 47,
+        srcHeight: 46,
+        dstX: asteroid.x,
+        dstY: asteroid.y,
+      );
+    }
+  }
+
+  void renderRockets() {
+    for (var rocket in game.rockets) {
+      if (!rocket.active) continue;
+      renderSpriteRotated(
+        image: atlas,
+        srcX: 208,
+        srcY: 9,
+        srcWidth: 32,
+        srcHeight: 16,
+        dstX: rocket.x,
+        dstY: rocket.y,
+        rotation: rocket.rotation,
+        anchorX: 0,
+      );
+    }
+  }
+
+  void renderCannon() {
+    final cannonAngle = game.cannonAngle;
+    final cannonRadius = game.cannonRadius;
+
+    renderSpriteRotated(
+      image: atlas,
+      srcX: 129,
+      srcY: 1,
+      srcWidth: 51,
+      srcHeight: 32,
+      dstX: adj(cannonAngle, cannonRadius),
+      dstY: opp(cannonAngle, cannonRadius),
+      anchorX: 0,
+      rotation: cannonAngle,
+    );
+  }
+
+  void renderPlanet() {
+    renderSprite(
+      image: atlas,
+      srcX: 0,
+      srcY: 0,
+      srcWidth: 126,
+      srcHeight: 126,
+      dstX: 0,
+      dstY: 0,
+    );
+  }
+
+  @override
+  void onDispose() {
+    // TODO: implement onDispose
+  }
+
+  @override
+  Widget buildUI() =>
+      WatchBuilder(game.gameOver, (bool gameOver) => Stack(
+        children: [
+          Positioned(
+              top: 8,
+              left: 8,
+              child: WatchBuilder(
+                  game.points,
+                      (int points) => Text(
+                    "Points: $points",
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 20),
+                  ))),
+          if (gameOver)
+            Container(
+              width: screen.width,
+              height: screen.height,
+              alignment: Alignment.center,
+              child: TextButton(
+                onPressed: game.restart,
+                child: const Text(
+                  "GAME OVER - RESTART",
+                  style: TextStyle(color: Colors.white70, fontSize: 40),
+                ),
+              ),
+            )
+        ],
+      ));
+}
+
+/// contains the business logic for the game.
+/// it has no awareness of the lemon engine and should be able to be plugged into
+/// any other game engine just as easily
+class AsteroidGame {
   var cannonRadius = 60.0;
   var cannonLength = 120.0;
   var rocketSpeed = 20.0;
   var earthRadius = 50.0;
-  var keyboardRotateSpeed = pi * 0.05;
   var asteroidSpeedVariation = 10.0;
   var asteroidSpawnRadius = 1000.0;
   var gameOver = Watch(false);
@@ -25,23 +189,12 @@ class AsteroidBlaster extends LemonEngine {
   var nextAsteroid = 0;
   var spawnDuration = 75;
 
-  AsteroidBlaster() : super(backgroundColor: const Color.fromARGB(255, 64, 80, 16));
-
-  @override
-  Future onInit(sharedPreferences) async {
-    atlas = await loadAssetImage('images/atlas.png');
-  }
-
-  @override
-  void onUpdate(double delta) {
-    cameraCenter(0, 0);
-
+  void update(double delta) {
     if (gameOver.value) return;
     updateSpawnAsteroids();
     updateRockets();
     updateAsteroids();
     updateCollisionDetection();
-    handleKeyboardInput();
   }
 
   void updateSpawnAsteroids() {
@@ -86,54 +239,6 @@ class AsteroidBlaster extends LemonEngine {
     }
   }
 
-  void handleKeyboardInput() {
-    if (keyPressed(KeyCode.Arrow_Left)) {
-      cannonAngle -= keyboardRotateSpeed;
-    }
-    if (keyPressed(KeyCode.Arrow_Right)) {
-      cannonAngle += keyboardRotateSpeed;
-    }
-  }
-
-
-  @override
-  void onDrawCanvas(Canvas canvas, Size size) {
-    renderPlanet();
-    renderCannon();
-    renderRockets();
-    renderAsteroids();
-  }
-
-
-  @override
-  void onLeftClicked() {
-    fireRocket();
-  }
-
-  @override
-  void onRightClicked() {
-    fireRocket();
-  }
-
-  @override
-  void onKeyPressed(int keyCode) {
-    switch (keyCode) {
-      case KeyCode.Space:
-        fireRocket();
-        break;
-    }
-  }
-
-  @override
-  void onMouseMoved(double x, double y) {
-    cannonAngle = angleBetween(
-      x,
-      y,
-      screenCenterX,
-      screenCenterY,
-    );
-  }
-
   void fireRocket() {
     rockets.add(Rocket(
       x: adj(cannonAngle, cannonLength),
@@ -160,107 +265,6 @@ class AsteroidBlaster extends LemonEngine {
     gameOver.value = false;
     spawnDuration = 75;
   }
-
-  void renderAsteroids() {
-    for (final asteroid in asteroids) {
-      if (!asteroid.active) continue;
-      renderSprite(
-        image: atlas,
-        srcX: 143,
-        srcY: 48,
-        srcWidth: 47,
-        srcHeight: 46,
-        dstX: asteroid.x,
-        dstY: asteroid.y,
-      );
-    }
-  }
-
-  void renderRockets() {
-    for (var rocket in rockets) {
-      if (!rocket.active) continue;
-      renderSpriteRotated(
-        image: atlas,
-        srcX: 208,
-        srcY: 9,
-        srcWidth: 32,
-        srcHeight: 16,
-        dstX: rocket.x,
-        dstY: rocket.y,
-        rotation: rocket.rotation,
-        anchorX: 0,
-      );
-    }
-  }
-
-  void renderCannon() {
-    renderSpriteRotated(
-      image: atlas,
-      srcX: 129,
-      srcY: 1,
-      srcWidth: 51,
-      srcHeight: 32,
-      dstX: adj(cannonAngle, cannonRadius),
-      dstY: opp(cannonAngle, cannonRadius),
-      anchorX: 0,
-      rotation: cannonAngle,
-    );
-  }
-
-  void renderPlanet() {
-    renderSprite(
-      image: atlas,
-      srcX: 0,
-      srcY: 0,
-      srcWidth: 126,
-      srcHeight: 126,
-      dstX: 0,
-      dstY: 0,
-    );
-  }
-
-  @override
-  void onDispose() {
-    // TODO: implement onDispose
-  }
-
-  @override
-  Widget buildUI() {
-    return WatchBuilder(gameOver, (bool gameOver) {
-      return Stack(
-        children: [
-          Positioned(
-              top: 8,
-              left: 8,
-              child: WatchBuilder(
-                  points,
-                      (int points) => Text(
-                    "Points: $points",
-                    style: const TextStyle(
-                        color: Colors.white70, fontSize: 20),
-                  ))),
-          if (gameOver)
-            Container(
-              width: screen.width,
-              height: screen.height,
-              alignment: Alignment.center,
-              child: TextButton(
-                onPressed: restart,
-                child: const Text(
-                  "GAME OVER - RESTART",
-                  style: TextStyle(color: Colors.white70, fontSize: 40),
-                ),
-              ),
-            )
-        ],
-      );
-    });
-  }
-}
-
-
-class Asteroids {
-
 }
 
 class Asteroid {
