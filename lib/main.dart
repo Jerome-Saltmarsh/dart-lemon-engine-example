@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:lemon_engine_example/example.dart';
+import 'package:lemon_engine_example/asteroid_blaster.dart';
 
 
 void main() {
-  runApp(ExampleGame());
+  runApp(AsteroidBlaster());
 }

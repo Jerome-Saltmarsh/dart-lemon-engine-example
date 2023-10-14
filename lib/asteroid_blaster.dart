@@ -7,7 +7,8 @@ import 'dart:ui' as ui;
 import 'package:lemon_math/src.dart';
 import 'package:lemon_watch/src.dart';
 
-class ExampleGame extends LemonEngine {
+
+class AsteroidBlaster extends LemonEngine {
   late final ui.Image atlas;
   var cannonRadius = 60.0;
   var cannonLength = 120.0;
@@ -24,19 +25,95 @@ class ExampleGame extends LemonEngine {
   var nextAsteroid = 0;
   var spawnDuration = 75;
 
-  ExampleGame() : super(backgroundColor: const Color.fromARGB(255, 64, 80, 16));
+  AsteroidBlaster() : super(backgroundColor: const Color.fromARGB(255, 64, 80, 16));
+
+  @override
+  Future onInit(sharedPreferences) async {
+    atlas = await loadAssetImage('images/atlas.png');
+  }
+
+  @override
+  void onUpdate(double delta) {
+    cameraCenter(0, 0);
+
+    if (gameOver.value) return;
+    updateSpawnAsteroids();
+    updateRockets();
+    updateAsteroids();
+    updateCollisionDetection();
+    handleKeyboardInput();
+  }
+
+  void updateSpawnAsteroids() {
+    nextAsteroid--;
+    if (nextAsteroid <= 0) {
+      spawnAsteroid();
+      nextAsteroid = spawnDuration;
+      if (spawnDuration > 10) {
+        spawnDuration--;
+      }
+    }
+  }
+
+  void updateRockets() {
+    for (final rocket in rockets) {
+      rocket.update();
+    }
+  }
+
+  void updateAsteroids() {
+    for (final asteroid in asteroids) {
+      asteroid.update();
+      if (asteroid.distance < earthRadius) {
+        gameOver.value = true;
+      }
+    }
+  }
+
+  void updateCollisionDetection() {
+    for (final rocket in rockets) {
+      if (!rocket.active) continue;
+      for (final asteroid in asteroids) {
+        if (!asteroid.active) continue;
+        if (distanceBetween(
+            asteroid.x, asteroid.y, rocket.x, rocket.y) >
+            25) continue;
+        asteroid.active = false;
+        rocket.active = false;
+        points.value++;
+        break;
+      }
+    }
+  }
+
+  void handleKeyboardInput() {
+    if (keyPressed(KeyCode.Arrow_Left)) {
+      cannonAngle -= keyboardRotateSpeed;
+    }
+    if (keyPressed(KeyCode.Arrow_Right)) {
+      cannonAngle += keyboardRotateSpeed;
+    }
+  }
+
+
+  @override
+  void onDrawCanvas(Canvas canvas, Size size) {
+    renderPlanet();
+    renderCannon();
+    renderRockets();
+    renderAsteroids();
+  }
+
 
   @override
   void onLeftClicked() {
     fireRocket();
   }
 
-
   @override
   void onRightClicked() {
     fireRocket();
   }
-
 
   @override
   void onKeyPressed(int keyCode) {
@@ -84,36 +161,22 @@ class ExampleGame extends LemonEngine {
     spawnDuration = 75;
   }
 
-  @override
-  void onDrawCanvas(Canvas canvas, Size size) {
-    // cameraX = 0;
-    // cameraY = 0;
+  void renderAsteroids() {
+    for (final asteroid in asteroids) {
+      if (!asteroid.active) continue;
+      renderSprite(
+        image: atlas,
+        srcX: 143,
+        srcY: 48,
+        srcWidth: 47,
+        srcHeight: 46,
+        dstX: asteroid.x,
+        dstY: asteroid.y,
+      );
+    }
+  }
 
-    // render planet
-    renderSprite(
-      image: atlas,
-      srcX: 0,
-      srcY: 0,
-      srcWidth: 126,
-      srcHeight: 126,
-      dstX: 0,
-      dstY: 0,
-    );
-
-    // render cannon
-    renderSpriteRotated(
-      image: atlas,
-      srcX: 129,
-      srcY: 1,
-      srcWidth: 51,
-      srcHeight: 32,
-      dstX: adj(cannonAngle, cannonRadius),
-      dstY: opp(cannonAngle, cannonRadius),
-      anchorX: 0,
-      rotation: cannonAngle,
-    );
-
-    // render rockets
+  void renderRockets() {
     for (var rocket in rockets) {
       if (!rocket.active) continue;
       renderSpriteRotated(
@@ -128,74 +191,32 @@ class ExampleGame extends LemonEngine {
         anchorX: 0,
       );
     }
-
-    for (final asteroid in asteroids) {
-      if (!asteroid.active) continue;
-      renderSprite(
-        image: atlas,
-        srcX: 143,
-        srcY: 48,
-        srcWidth: 47,
-        srcHeight: 46,
-        dstX: asteroid.x,
-        dstY: asteroid.y,
-      );
-    }
-
   }
 
-  @override
-  Future onInit(sharedPreferences) async {
-    atlas = await loadAssetImage('images/atlas.png');
+  void renderCannon() {
+    renderSpriteRotated(
+      image: atlas,
+      srcX: 129,
+      srcY: 1,
+      srcWidth: 51,
+      srcHeight: 32,
+      dstX: adj(cannonAngle, cannonRadius),
+      dstY: opp(cannonAngle, cannonRadius),
+      anchorX: 0,
+      rotation: cannonAngle,
+    );
   }
 
-  @override
-  void onUpdate(double delta) {
-    cameraCenter(0, 0);
-
-    if (gameOver.value) return;
-    nextAsteroid--;
-
-    if (nextAsteroid <= 0) {
-      spawnAsteroid();
-      nextAsteroid = spawnDuration;
-      if (spawnDuration > 10) {
-        spawnDuration--;
-      }
-    }
-
-    for (final rocket in rockets) {
-      rocket.update();
-    }
-
-    for (final asteroid in asteroids) {
-      asteroid.update();
-      if (asteroid.distance < earthRadius) {
-        gameOver.value = true;
-      }
-    }
-
-    // collision detection
-    for (final rocket in rockets) {
-      if (!rocket.active) continue;
-      for (final asteroid in asteroids) {
-        if (!asteroid.active) continue;
-        if (distanceBetween(
-            asteroid.x, asteroid.y, rocket.x, rocket.y) >
-            25) continue;
-        asteroid.active = false;
-        rocket.active = false;
-        points.value++;
-        break;
-      }
-    }
-
-    if (keyPressed(KeyCode.Arrow_Left)) {
-      cannonAngle -= keyboardRotateSpeed;
-    }
-    if (keyPressed(KeyCode.Arrow_Right)) {
-      cannonAngle += keyboardRotateSpeed;
-    }
+  void renderPlanet() {
+    renderSprite(
+      image: atlas,
+      srcX: 0,
+      srcY: 0,
+      srcWidth: 126,
+      srcHeight: 126,
+      dstX: 0,
+      dstY: 0,
+    );
   }
 
   @override
@@ -235,6 +256,11 @@ class ExampleGame extends LemonEngine {
       );
     });
   }
+}
+
+
+class Asteroids {
+
 }
 
 class Asteroid {
