@@ -173,7 +173,7 @@ class AsteroidGameWidget extends LemonEngine {
 
 /// contains the business logic for the game.
 /// it has no awareness of the lemon engine and should be able to be plugged into
-/// any other game engine just as easily
+/// any other game engine and run just as easily
 class AsteroidGame {
   var cannonRadius = 60.0;
   var cannonLength = 120.0;
@@ -227,16 +227,26 @@ class AsteroidGame {
     for (final rocket in rockets) {
       if (!rocket.active) continue;
       for (final asteroid in asteroids) {
-        if (!asteroid.active) continue;
-        if (distanceBetween(
-            asteroid.x, asteroid.y, rocket.x, rocket.y) >
-            25) continue;
+        if(!areColliding(rocket, asteroid)) {
+          continue;
+        }
         asteroid.active = false;
         rocket.active = false;
         points.value++;
         break;
       }
     }
+  }
+
+  static bool areColliding(Rocket rocket, Asteroid asteroid){
+    const asteroidRadius = 25.0;
+    return asteroid.active &&
+        distanceBetween(
+          asteroid.x,
+          asteroid.y,
+          rocket.x,
+          rocket.y,
+        ) <= asteroidRadius;
   }
 
   void fireRocket() {
